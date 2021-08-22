@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -13,58 +12,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
-)
-
-var (
-	// Accounts contains the IDs for the management and Audit accounts
-	Accounts = map[string]string{
-		"Management": "665735848255",
-		"Audit":      "984217156667",
-	}
-
-	// Regions to audit
-	Regions = [17]string{
-		"us-east-1",
-		"us-east-2",
-		"us-west-1",
-		"us-west-2",
-		"ca-central-1",
-		"eu-central-1",
-		"eu-north-1",
-		"eu-west-1",
-		"eu-west-2",
-		"eu-west-3",
-		"ap-northeast-1",
-		"ap-northeast-2",
-		"ap-northeast-3",
-		"ap-southeast-1",
-		"ap-southeast-2",
-		"ap-south-1",
-		"sa-east-1",
-	}
-
-	// AWS Config
-	// AWSConfigAggregatorName
-	AWSConfigAggregatorName = "aws-controltower-GuardrailsComplianceAggregator"
-	// AWSConfigRole must exist in every account with "ReadOnlyAccess" and "AWS_ConfigRole" policies attached.
-	AWSConfigRole = "aws-controltower-ConfigRecorderRole"
-	// AWSConfigSnapshotDeliveryFrequency
-	// AWSConfigS3BucketName is the archival bucket in Log archive
-	AWSConfigS3BucketName = "aws-controltower-logs-543705552769-us-east-1"
-	// AWSConfigS3KeyPrefix
-	// AWSConfigS3KMSKeyARN
-	// AWSConfigSNSTopicAccount is the account which contains the SNS topic for delivery
-	AWSConfigSNSTopicAccount = "984217156667"
-	// AWSConfigSNSTopicName is the name of the SNS topic for delivery
-	AWSConfigSNSTopicName = "aws-controltower-AllConfigNotifications"
-
-	// Handler configuration
-	// DefaultHTTPGetAddress is the site to GET
-	DefaultHTTPGetAddress = "https://checkip.amazonaws.com"
-	// ErrNoIP occurs when no IP is found in response
-	ErrNoIP = errors.New("No IP in HTTP response")
-	// ErrNon200Response occurs when non-200 status code is received
-	ErrNon200Response = errors.New("Non-200 response found")
 )
 
 func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -109,7 +56,7 @@ func main() {
 	var currentConfig aws.Config
 
 	// Assume credentials in the Audit account to fetch all active AWS accounts in the organization
-	roleArn = "arn:aws:iam::" + Accounts["Audit"] + ":role/aws-controltower-ReadOnlyExecutionRole"
+	roleArn = "arn:aws:iam::" + Accounts["Audit"] + ":role/" + AWSAuditorRole
 	currentConfig = AssumeRole(stsc, Accounts["Audit"], roleArn)
 	activeAccounts := GetActiveAccounts(currentConfig)
 	log.Println(len(activeAccounts), "accounts in the organization with ACTIVE status")
@@ -123,7 +70,7 @@ func main() {
 		}
 		accountName := activeAccounts[accountID]
 
-		roleArn = "arn:aws:iam::" + accountID + ":role/aws-controltower-ReadOnlyExecutionRole"
+		roleArn = "arn:aws:iam::" + accountID + ":role/" + AWSAuditorRole
 		currentConfig = AssumeRole(stsc, accountID, roleArn)
 		// log.Println("********** " + accountName + " (" + accountID + ") **********")
 
