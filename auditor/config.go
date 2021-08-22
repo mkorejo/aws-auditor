@@ -58,7 +58,8 @@ func AuditConfig(config aws.Config, accountID string, accountName string) {
 			log.Fatalln(log_prefix, "Error describing delivery channels:", err)
 			return
 		}
-		if describeDeliveryChannelsResult.DeliveryChannels[0].S3BucketName != &AWSConfigS3BucketName {
+		if len(describeDeliveryChannelsResult.DeliveryChannels) > 0 &&
+			describeDeliveryChannelsResult.DeliveryChannels[0].S3BucketName != &AWSConfigS3BucketName {
 			log.Println(log_prefix, "Using an incorrect delivery configuration for S3")
 		}
 
