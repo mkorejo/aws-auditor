@@ -39,11 +39,14 @@ func AuditIAM(config aws.Config, accountID string, accountName string) {
 	}
 
 	log.Println(log_prefix, len(listRolesResult.Roles), "roles")
-	audit_role := true
+	var audit_role bool
 	for _, role := range listRolesResult.Roles {
+		// We want to see all role by default
+		audit_role = true
+
 		// Exclude roles created by Control Tower, SSO, and other services
-		for _, rolePattern := range AWSIAMExcludedRolePatterns {
-			if strings.Contains(*role.RoleName, rolePattern) {
+		for _, rp := range AWSIAMExcludedRolePatterns {
+			if strings.Contains(*role.RoleName, rp) {
 				audit_role = false
 			}
 		}
