@@ -30,6 +30,29 @@ func GetActiveAccounts(config aws.Config) map[string]string {
 		}
 	}
 
+	// While there are more results ...
+	for listAccountsResult.NextToken != nil {
+		listAccountsInput = &organizations.ListAccountsInput{
+			// Setup the next ListAccounts call to use the current value of NextToken
+			NextToken: listAccountsResult.NextToken,
+		}
+		nextlistAccountsResult, err := orgc.ListAccounts(context.TODO(), listAccountsInput)
+		if err != nil {
+			log.Fatalln("Error retrieving more accounts:", err)
+			return aa
+		}
+
+		// For each active account, add an entry to the map
+		for _, account := range nextlistAccountsResult.Accounts {
+			if account.Status == "ACTIVE" {
+				aa[*account.Id] = *account.Name
+			}
+		}
+
+		// Update the value of NextToken
+		listAccountsResult.NextToken = nextlistAccountsResult.NextToken
+	}
+
 	return aa
 }
 
