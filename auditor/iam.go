@@ -39,12 +39,16 @@ func AuditIAM(config aws.Config, accountID string, accountName string) {
 	}
 
 	log.Println(log_prefix, len(listRolesResult.Roles), "roles")
+	audit_role := true
 	for _, role := range listRolesResult.Roles {
 		// Exclude roles created by Control Tower, SSO, and other services
-		if !(strings.Contains(*role.RoleName, "aws-controltower-") ||
-			strings.Contains(*role.RoleName, "AWSControlTower") ||
-			strings.Contains(*role.RoleName, "AWSReservedSSO_") ||
-			strings.Contains(*role.RoleName, "AWSServiceRoleFor")) {
+		for _, rolePattern := range AWSIAMExcludedRolePatterns {
+			if strings.Contains(*role.RoleName, rolePattern) {
+				audit_role = false
+			}
+		}
+
+		if audit_role {
 			log.Println(log_prefix, *role.RoleName, "created on", *role.CreateDate)
 		}
 	}

@@ -48,6 +48,15 @@ var (
 	// AWSConfigSNSTopicName is the name of the SNS topic for delivery
 	AWSConfigSNSTopicName = "aws-controltower-AllConfigNotifications"
 
+	// AWS IAM
+	// AWSIAMExcludedRolePatterns
+	AWSIAMExcludedRolePatterns = []string{
+		"aws-controltower-",
+		"AWSControlTower",
+		"AWSReservedSSO_",
+		"AWSServiceRoleFor",
+	}
+
 	// Handler configuration
 	// DefaultHTTPGetAddress is the site to GET
 	DefaultHTTPGetAddress = "https://checkip.amazonaws.com"
