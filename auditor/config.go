@@ -3,13 +3,15 @@ package main
 import (
 	"context"
 	"log"
+	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/configservice"
 )
 
-func AuditConfig(config aws.Config, accountID string, accountName string) {
+func AuditConfig(config aws.Config, accountID string, accountName string, wg *sync.WaitGroup) {
 	configc := configservice.NewFromConfig(config)
+	defer wg.Done()
 
 	// Standard logging prefix
 	log_prefix := accountName + " (" + accountID + ") - CONFIG - " + config.Region + " -"

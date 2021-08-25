@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -33,13 +34,6 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 		return events.APIGatewayProxyResponse{}, ErrNoIP
 	}
 
-	return events.APIGatewayProxyResponse{
-		Body:       fmt.Sprintf("Hello, %v", string(ip)),
-		StatusCode: 200,
-	}, nil
-}
-
-func main() {
 	// Load the default AWS configuration (~/.aws/config)
 	initConfig, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
@@ -63,6 +57,7 @@ func main() {
 
 	// Iterate through the map of active AWS accounts
 	managementAccountID := GetManagementAccountID(currentConfig)
+	var wg sync.WaitGroup
 	for accountID := range activeAccounts {
 		// Skip the management account as this typically does not have the shared role
 		if accountID == managementAccountID {
@@ -76,10 +71,22 @@ func main() {
 
 		for _, region := range Regions {
 			currentConfig.Region = region
-			AuditConfig(currentConfig, accountID, accountName)
+			wg.Add(1)
+			go AuditConfig(currentConfig, accountID, accountName, &wg)
 		}
-		AuditIAM(currentConfig, accountID, accountName)
+
+		AuditIAMRoles(currentConfig, accountID, accountName)
+		AuditIAMUsers(currentConfig, accountID, accountName)
+
+		wg.Wait()
 	}
 
+	return events.APIGatewayProxyResponse{
+		Body:       fmt.Sprintf("Hello, %v", string(ip)),
+		StatusCode: 200,
+	}, nil
+}
+
+func main() {
 	lambda.Start(handler)
 }

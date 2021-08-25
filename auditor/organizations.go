@@ -33,7 +33,7 @@ func GetActiveAccounts(config aws.Config) map[string]string {
 	// While there are more results ...
 	for listAccountsResult.NextToken != nil {
 		listAccountsInput = &organizations.ListAccountsInput{
-			// Setup the next ListAccounts call to use the current value of NextToken
+			// Setup the next ListAccounts call with the current value of NextToken
 			NextToken: listAccountsResult.NextToken,
 		}
 		nextlistAccountsResult, err := orgc.ListAccounts(context.TODO(), listAccountsInput)
