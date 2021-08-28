@@ -6,13 +6,13 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"sync"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
+	"github.com/remeh/sizedwaitgroup"
 )
 
 func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -37,9 +37,11 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 	activeAccounts := GetActiveAccounts(currentConfig)
 	log.Println(len(activeAccounts), "accounts in the organization with ACTIVE status")
 
+	// Limit concurrency to 10 goroutines when querying multiple regions
+	swg := sizedwaitgroup.New(10)
+
 	// Iterate through the map of active AWS accounts
 	managementAccountID := GetManagementAccountID(currentConfig)
-	var wg sync.WaitGroup
 	for accountID := range activeAccounts {
 		// Skip the management account as this typically does not have the shared role
 		if accountID == managementAccountID {
@@ -54,14 +56,14 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 
 		for _, region := range Regions {
 			currentConfig.Region = region
-			wg.Add(1)
-			go AuditConfig(currentConfig, accountID, accountName, &wg)
+			swg.Add()
+			go AuditConfig(currentConfig, accountID, accountName, &swg)
 		}
 
 		AuditIAMRoles(currentConfig, accountID, accountName)
 		AuditIAMUsers(currentConfig, accountID, accountName)
 
-		wg.Wait()
+		swg.Wait()
 	}
 
 	// Boilerplate handler logic for use with API Gateway

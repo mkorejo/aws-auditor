@@ -11,4 +11,5 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/iam v1.8.0
 	github.com/aws/aws-sdk-go-v2/service/organizations v1.5.2
 	github.com/aws/aws-sdk-go-v2/service/sts v1.6.1
+	github.com/remeh/sizedwaitgroup v1.0.0
 )

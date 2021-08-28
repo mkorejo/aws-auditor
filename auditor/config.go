@@ -3,15 +3,15 @@ package main
 import (
 	"context"
 	"log"
-	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/configservice"
+	"github.com/remeh/sizedwaitgroup"
 )
 
-func AuditConfig(config aws.Config, accountID string, accountName string, wg *sync.WaitGroup) {
+func AuditConfig(config aws.Config, accountID string, accountName string, swg *sizedwaitgroup.SizedWaitGroup) {
 	configc := configservice.NewFromConfig(config)
-	defer wg.Done()
+	defer swg.Done()
 
 	// Standard logging prefix
 	log_prefix := accountName + " (" + accountID + ") - CONFIG - " + config.Region + " -"
