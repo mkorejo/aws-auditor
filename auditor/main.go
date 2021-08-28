@@ -16,6 +16,55 @@ import (
 )
 
 func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	// Load the default AWS configuration (~/.aws/config)
+	initConfig, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		log.Fatal("Configuration error:", err)
+	}
+
+	// Create an Amazon STS service client
+	stsc := sts.NewFromConfig(initConfig)
+	// roleArn is sent to STS to perform AssumeRole in each account
+	var roleArn string
+	// currentConfig represents the aws.Config for the current AssumeRole
+	var currentConfig aws.Config
+
+	// Assume credentials in the Audit account
+	roleArn = "arn:aws:iam::" + Accounts["Audit"] + ":role/" + AWSAuditorRole
+	currentConfig = AssumeRole(stsc, Accounts["Audit"], roleArn)
+
+	// Fetch all active AWS accounts in the organization
+	activeAccounts := GetActiveAccounts(currentConfig)
+	log.Println(len(activeAccounts), "accounts in the organization with ACTIVE status")
+
+	// Iterate through the map of active AWS accounts
+	managementAccountID := GetManagementAccountID(currentConfig)
+	var wg sync.WaitGroup
+	for accountID := range activeAccounts {
+		// Skip the management account as this typically does not have the shared role
+		if accountID == managementAccountID {
+			continue
+		}
+		accountName := activeAccounts[accountID]
+
+		// Assume credentials in the current account
+		roleArn = "arn:aws:iam::" + accountID + ":role/" + AWSAuditorRole
+		currentConfig = AssumeRole(stsc, accountID, roleArn)
+		// log.Println("********** " + accountName + " (" + accountID + ") **********")
+
+		for _, region := range Regions {
+			currentConfig.Region = region
+			wg.Add(1)
+			go AuditConfig(currentConfig, accountID, accountName, &wg)
+		}
+
+		AuditIAMRoles(currentConfig, accountID, accountName)
+		AuditIAMUsers(currentConfig, accountID, accountName)
+
+		wg.Wait()
+	}
+
+	// Boilerplate handler logic for use with API Gateway
 	resp, err := http.Get(DefaultHTTPGetAddress)
 	if err != nil {
 		return events.APIGatewayProxyResponse{}, err
@@ -32,53 +81,6 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 
 	if len(ip) == 0 {
 		return events.APIGatewayProxyResponse{}, ErrNoIP
-	}
-
-	// Load the default AWS configuration (~/.aws/config)
-	initConfig, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
-		log.Fatal("Configuration error:", err)
-	}
-
-	// Create an Amazon STS service client
-	stsc := sts.NewFromConfig(initConfig)
-
-	// roleArn is sent to STS to perform AssumeRole in each account
-	var roleArn string
-
-	// currentConfig represents the aws.Config for the current AssumeRole
-	var currentConfig aws.Config
-
-	// Assume credentials in the Audit account to fetch all active AWS accounts in the organization
-	roleArn = "arn:aws:iam::" + Accounts["Audit"] + ":role/" + AWSAuditorRole
-	currentConfig = AssumeRole(stsc, Accounts["Audit"], roleArn)
-	activeAccounts := GetActiveAccounts(currentConfig)
-	log.Println(len(activeAccounts), "accounts in the organization with ACTIVE status")
-
-	// Iterate through the map of active AWS accounts
-	managementAccountID := GetManagementAccountID(currentConfig)
-	var wg sync.WaitGroup
-	for accountID := range activeAccounts {
-		// Skip the management account as this typically does not have the shared role
-		if accountID == managementAccountID {
-			continue
-		}
-		accountName := activeAccounts[accountID]
-
-		roleArn = "arn:aws:iam::" + accountID + ":role/" + AWSAuditorRole
-		currentConfig = AssumeRole(stsc, accountID, roleArn)
-		// log.Println("********** " + accountName + " (" + accountID + ") **********")
-
-		for _, region := range Regions {
-			currentConfig.Region = region
-			wg.Add(1)
-			go AuditConfig(currentConfig, accountID, accountName, &wg)
-		}
-
-		AuditIAMRoles(currentConfig, accountID, accountName)
-		AuditIAMUsers(currentConfig, accountID, accountName)
-
-		wg.Wait()
 	}
 
 	return events.APIGatewayProxyResponse{

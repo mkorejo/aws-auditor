@@ -30,7 +30,6 @@ func AuditConfig(config aws.Config, accountID string, accountName string, wg *sy
 	} else if (len(describeConfigRecordersResult.ConfigurationRecorders) == 1) &&
 		(*describeConfigRecordersResult.ConfigurationRecorders[0].Name == "default") {
 		// AWS Config is enabled! Let's check some other settings.
-
 		// Confirm recording status
 		describeConfigRecordersStatusInput := &configservice.DescribeConfigurationRecorderStatusInput{}
 		describeConfigRecordersStatusResult, err := configc.DescribeConfigurationRecorderStatus(context.TODO(), describeConfigRecordersStatusInput)
